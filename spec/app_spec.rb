@@ -39,6 +39,23 @@ describe Transair do
     expect(translations).to eq("fr" => "Bonjour, Monde!")
   end
 
+  it "allows getting all versions of a string" do
+    put "/strings/x.y.greeting/0a0a9f2a6772", "Hello, World!"
+    expect(last_response.status).to eq 200
+
+    put "/strings/x.y.greeting/5c9c921d4a6a", "Hello, World!!"
+    expect(last_response.status).to eq 200
+
+    get "/strings/x.y.greeting"
+    expect(last_response.status).to eq 200
+    versions = JSON.parse(last_response.body)
+
+    expect(versions).to eq(
+      "0a0a9f2a6772" => "Hello, World!",
+      "5c9c921d4a6a" => "Hello, World!!"
+    )
+  end
+
   it "returns 404 when getting a non-existent string" do
     get "/strings/x.y.greeting/0a0a9f2a6772"
     expect(last_response.status).to eq 404

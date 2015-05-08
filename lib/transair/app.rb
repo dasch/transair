@@ -42,6 +42,11 @@ module Transair
       end
     end
 
+    get '/strings/:key' do
+      versions = settings.string_repo.find_all(key: params[:key])
+      json(versions)
+    end
+
     get '/strings/:key/:version/translations' do
       key, version = params.values_at(:key, :version)
 
