@@ -6,7 +6,7 @@ require 'faraday'
 
 module Transair
   class Client
-    def self.build(url:)
+    def self.build(url:, locales:)
       connection = Faraday.new(url: url) do |faraday|
         faraday.adapter :net_http_persistent
       end
@@ -17,17 +17,19 @@ module Transair
       new(
         master_path: "masters.yml",
         translations_path: "translations",
+        locales: locales,
         connection: connection,
         logger: logger
       )
     end
 
-    def initialize(master_path:, translations_path:, connection:, logger: Logger.new($stderr))
+    def initialize(master_path:, translations_path:, locales:, connection:, logger:)
       @master_file_path = master_path
       @translations_path = translations_path
       @connection = connection
+      @locales = locales
       @logger = logger
-      @locales = Hash.new {|h, k| h[k] = {} }
+      @translations = Hash.new {|h, k| h[k] = {} }
     end
 
     def sync!
@@ -38,9 +40,9 @@ module Transair
 
       FileUtils.mkdir_p(@translations_path)
 
-      @locales.each do |locale, translations|
+      @translations.each do |locale, entries|
         File.open(File.join(@translations_path, "#{locale}.yml"), "w") do |file|
-          file << YAML.dump(translations)
+          file << YAML.dump(entries)
         end
       end
     end
@@ -49,24 +51,24 @@ module Transair
 
     def sync_key(key, master)
       version = Digest::SHA1.hexdigest(master)[0, 12]
-      url = "/strings/#{key}/#{version}/translations"
 
-      response = @connection.get(url)
+      @locales.each do |locale|
+        url = "/strings/#{key}/#{version}/translations/#{locale}"
 
-      if response.status == 404
-        @logger.info "Key #{key} not found, uploading..."
-        upload_key(key, version, master)
-      elsif response.status == 200
-        translations = JSON.parse(response.body)
+        response = @connection.get(url)
 
-        @logger.info "Key #{key} found, storing #{translations.size} translations..."
+        if response.status == 404
+          @logger.info "Key #{key} not found, uploading..."
+          upload_key(key, version, master)
+          break
+        elsif response.status == 200
+          @logger.info "Translation for #{key} found in #{locale}..."
 
-        translations.each do |locale, translation|
-          @locales[locale][key] = translation
+          @translations[locale][key] = response.body
+        else
+          @logger.warn "Failed to download #{locale} translation for key #{key} -- " \
+            "response status #{response.status}"
         end
-      else
-        @logger.warn "Failed to download translations for key #{key} -- " \
-          "response status #{response.status}"
       end
     end
 

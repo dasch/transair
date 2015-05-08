@@ -18,6 +18,7 @@ describe Transair::Client do
     Transair::Client.new(
       master_path: master_file_path,
       translations_path: translations_path,
+      locales: ["fr"],
       connection: connection,
       logger: logger
     )

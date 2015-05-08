@@ -47,16 +47,20 @@ module Transair
       json(versions)
     end
 
-    get '/strings/:key/:version/translations' do
-      key, version = params.values_at(:key, :version)
+    get '/strings/:key/:version/translations/:locale' do
+      key, version, locale = params.values_at(:key, :version, :locale)
 
-      unless settings.string_repo.exist?(key: key, version: version)
-        halt 404
+      translation = settings.translation_repo.find(
+        key: key,
+        version: version,
+        locale: locale
+      )
+
+      if translation
+        translation
+      else
+        status 404
       end
-
-      translations = settings.translation_repo.find_all(key: key, version: version)
-
-      json(translations)
     end
 
     put '/strings/:key/:version/translations/:locale' do
