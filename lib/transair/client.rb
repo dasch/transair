@@ -7,7 +7,10 @@ require 'faraday'
 module Transair
   class Client
     def self.build(url:)
-      connection = Faraday.new(url: url)
+      connection = Faraday.new(url: url) do |faraday|
+        faraday.adapter :net_http_persistent
+      end
+
       logger = Logger.new($stderr)
       logger.formatter = proc {|severity, datetime, progname, msg| msg + "\n" }
 
