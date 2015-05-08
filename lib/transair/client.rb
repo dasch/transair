@@ -29,7 +29,17 @@ module Transair
       @connection = connection
       @locales = locales
       @logger = logger
-      @translations = Hash.new {|h, k| h[k] = {} }
+      @translations = {}
+
+      @locales.each do |locale|
+        path = File.join(@translations_path, "#{locale}.yml")
+
+        if File.exist?(path)
+          @translations[locale] = YAML.load_file(path)
+        else
+          @translations[locale] = Hash.new
+        end
+      end
     end
 
     def sync!
@@ -54,8 +64,14 @@ module Transair
 
       @locales.each do |locale|
         url = "/strings/#{key}/#{version}/translations/#{locale}"
+        existing_translation = @translations[locale][key]
 
-        response = @connection.get(url)
+        response = @connection.get(url) do |req|
+          if existing_translation
+            etag = Digest::SHA1.hexdigest(existing_translation)
+            req.headers["If-None-Match"] = etag
+          end
+        end
 
         if response.status == 404
           @logger.info "Key #{key} not found, uploading..."
