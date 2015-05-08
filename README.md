@@ -4,6 +4,8 @@ A translation management system. Transair works by synchronizing a local databas
 
 Both master and translation strings are supposed to be stored in version control, making deployment simple and reliable.
 
+Transair supports multiple _versions_ of a string. Each version is identified by a digest of the master translation, meaning that any change to the master translation will implicitly cause a new version to be created when synchronizing. Translations are attached to a specific version of a key. This allows making changes to master strings in feature branches without impacting other branches, as you'll always get the translations specific to the local set of master strings.
+
 ###### Example usage
 
 ```
