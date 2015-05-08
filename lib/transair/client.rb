@@ -8,11 +8,14 @@ module Transair
   class Client
     def self.build(url:)
       connection = Faraday.new(url: url)
+      logger = Logger.new($stderr)
+      logger.formatter = proc {|severity, datetime, progname, msg| msg + "\n" }
 
       new(
         master_path: "masters.yml",
         translations_path: "translations",
-        connection: connection
+        connection: connection,
+        logger: logger
       )
     end
 
