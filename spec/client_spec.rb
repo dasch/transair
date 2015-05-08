@@ -14,7 +14,7 @@ describe Transair::Client do
   let(:backend) { Transair::App.new }
   let(:connection) { Faraday.new {|f| f.adapter :rack, backend } }
 
-  let(:client) do
+  def client
     Transair::Client.new(
       master_path: master_file_path,
       translations_path: translations_path,
@@ -46,6 +46,22 @@ describe Transair::Client do
     response = connection.put("/strings/x.y.greeting/0a0a9f2a6772/translations/fr", "Bonjour, Monde!")
     expect(response.status).to eq 200
 
+    client.sync!
+
+    expect(translations_for("fr")).to eq(
+      "x.y.greeting" => "Bonjour, Monde!"
+    )
+  end
+
+  it "can re-download translations" do
+    add_master_string "x.y.greeting", "Hello, World!"
+    
+    client.sync!
+
+    response = connection.put("/strings/x.y.greeting/0a0a9f2a6772/translations/fr", "Bonjour, Monde!")
+    expect(response.status).to eq 200
+
+    client.sync!
     client.sync!
 
     expect(translations_for("fr")).to eq(

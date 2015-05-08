@@ -2,6 +2,7 @@ require 'yaml'
 require 'digest/sha1'
 require 'logger'
 require 'json'
+require 'time'
 require 'faraday'
 
 module Transair
@@ -28,6 +29,7 @@ module Transair
       @connection = connection
       @logger = logger
       @locales = Hash.new {|h, k| h[k] = {} }
+      @timestamps = load_timestamps(File.join(translations_path, ".timestamps.yml"))
     end
 
     def sync!
@@ -39,9 +41,7 @@ module Transair
       FileUtils.mkdir_p(@translations_path)
 
       @locales.each do |locale, translations|
-        File.open(File.join(@translations_path, "#{locale}.yml"), "w") do |file|
-          file << YAML.dump(translations)
-        end
+        save_translations(locale, translations)
       end
     end
 
@@ -50,12 +50,19 @@ module Transair
     def sync_key(key, master)
       version = Digest::SHA1.hexdigest(master)[0, 12]
       url = "/strings/#{key}/#{version}/translations"
+      headers = {}
 
-      response = @connection.get(url)
+      if last_modified = get_last_modification(key)
+        headers["If-Modified-Since"] = last_modified.httpdate
+      end
+
+      response = @connection.get(url, {}, headers)
 
       if response.status == 404
         @logger.info "Key #{key} not found, uploading..."
         upload_key(key, version, master)
+      elsif response.status == 304
+        @logger.info "Key #{key} still fresh."
       elsif response.status == 200
         translations = JSON.parse(response.body)
 
@@ -64,6 +71,8 @@ module Transair
         translations.each do |locale, translation|
           @locales[locale][key] = translation
         end
+
+        update_last_modification(key, response.headers["Last-Modified"])
       else
         @logger.warn "Failed to download translations for key #{key} -- " \
           "response status #{response.status}"
@@ -87,6 +96,40 @@ module Transair
 
     def load_master_strings
       YAML.load_file(@master_file_path)
+    end
+
+    def get_last_modification(key)
+      @timestamps[key]
+    end
+
+    def load_timestamps(path)
+      if File.exist?(path)
+        YAML.load_file(path)
+      else
+        Hash.new
+      end
+    end
+
+    def update_last_modification(key, timestamp)
+      @timestamps[key] = Time.httpdate(timestamp) if timestamp
+    end
+
+    def save_translations(locale, translations)
+      file_path = File.join(@translations_path, "#{locale}.yml")
+
+      if File.exist?(file_path)
+        existing_translations = YAML.load_file(file_path)
+      else
+        existing_translations = Hash.new
+      end
+
+      translations.each do |key, value|
+        existing_translations[key] = value
+      end
+
+      File.open(file_path, "w") do |file|
+        file << YAML.dump(existing_translations)
+      end
     end
   end
 end
