@@ -18,11 +18,7 @@ describe Transair do
 
     get "/strings/x.y.greeting/0a0a9f2a6772"
 
-    string = JSON.parse(last_response.body)
-
-    expect(string["key"]).to eq "x.y.greeting"
-    expect(string["master"]).to eq "Hello, World!"
-    expect(string["version"]).to eq "0a0a9f2a6772"
+    expect(last_response.body).to eq "Hello, World!"
   end
 
   it "responds with 400 Bad Request if the version is not correct" do

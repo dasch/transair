@@ -21,10 +21,10 @@ module Transair
 
     get '/strings/:key/:version' do
       key, version = params.values_at(:key, :version)
-      string = settings.string_repo.find(key: key, version: version)
+      master = settings.string_repo.find(key: key, version: version)
 
-      if string
-        json(string)
+      if master
+        master
       else
         status 404
       end
@@ -35,8 +35,8 @@ module Transair
       master = request.body.read
 
       begin
-        string = settings.string_repo.add(key: key, master: master, version: version)
-        json(string)
+        settings.string_repo.add(key: key, master: master, version: version)
+        master
       rescue StringRepository::InvalidVersion
         status 400
       end

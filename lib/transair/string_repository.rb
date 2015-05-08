@@ -1,30 +1,6 @@
 require 'digest/sha1'
 
 module Transair
-  class I18nString
-    attr_reader :key, :master
-
-    def initialize(key:, master:)
-      @key, @master = key, master
-    end
-
-    def version
-      @version ||= Digest::SHA1.hexdigest(master)[0, 12]
-    end
-
-    def serializable_hash
-      {
-        "key" => key,
-        "master" => master,
-        "version" => version,
-      }
-    end
-
-    def to_json(*)
-      serializable_hash.to_json
-    end
-  end
-
   class StringRepository
     InvalidVersion = Class.new(StandardError)
 
@@ -33,13 +9,7 @@ module Transair
     end
 
     def find(key:, version:)
-      master = @masters[key][version]
-
-      if master
-        I18nString.new(key: key, master: master)
-      else
-        nil
-      end
+      @masters[key][version]
     end
 
     def exist?(key:, version:)
@@ -47,19 +17,23 @@ module Transair
     end
 
     def add(key:, master:, version: nil)
-      string = I18nString.new(key: key, master: master)
+      version ||= version_for(master)
 
-      if version && version != string.version
+      if version != version_for(master)
         raise InvalidVersion, "invalid string version"
       end
 
-      @masters[key][string.version] = master
-
-      string
+      @masters[key][version] = master
     end
 
     def clear
       @masters = Hash.new {|h, k| h[k] = {} }
+    end
+
+    private
+    
+    def version_for(master)
+      Digest::SHA1.hexdigest(master)[0, 12]
     end
   end
 end

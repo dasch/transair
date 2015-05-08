@@ -35,11 +35,7 @@ describe Transair::Client do
     response = connection.get("/strings/x.y.greeting/0a0a9f2a6772")
     expect(response.status).to eq 200
 
-    expect(JSON.parse(response.body)).to eq(
-      "key" => "x.y.greeting",
-      "master" => "Hello, World!",
-      "version" => "0a0a9f2a6772"
-    )
+    expect(response.body).to eq("Hello, World!")
   end
 
   it "downloads translations for existing keys" do
