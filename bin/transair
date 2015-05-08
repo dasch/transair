@@ -8,14 +8,12 @@ require 'transair/client'
 
 class TransairClient < Thor
   desc "sync", "synchronize strings"
-  option :url, required: true
   def sync
-    client = Transair::Client.build(url: options[:url])
+    client = Transair::Client.build(url: api_url)
     client.sync!
   end
 
   desc "translate", "translate a key"
-  option :url, required: true
   option :key, required: true
   option :version, required: true
   option :locale, required: true
@@ -29,17 +27,16 @@ class TransairClient < Thor
       options[:locale]
     ].join("/")
 
-    connection = Faraday.new(url: options[:url])
+    connection = Faraday.new(url: api_url)
     connection.put(path, options[:translation])
   end
 
   desc "ls", "list versions of a key"
-  option :url, required: true
   option :key, required: true
   def ls
     path = "/strings/#{options[:key]}"
 
-    connection = Faraday.new(url: options[:url])
+    connection = Faraday.new(url: api_url)
     response = connection.get(path)
 
     if response.status != 200
@@ -50,6 +47,16 @@ class TransairClient < Thor
     versions.each do |version, value|
       puts "#{version}: #{value}"
     end
+  end
+
+  private
+
+  def api_url
+    config.fetch("url")
+  end
+
+  def config
+    @config ||= YAML.load_file(".transair.yml")
   end
 end
 
