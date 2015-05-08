@@ -26,6 +26,8 @@ module Transair
   end
 
   class StringRepository
+    InvalidVersion = Class.new(StandardError)
+
     def initialize
       clear
     end
@@ -48,7 +50,7 @@ module Transair
       string = I18nString.new(key: key, master: master)
 
       if version && version != string.version
-        raise ArgumentError, "invalid string version"
+        raise InvalidVersion, "invalid string version"
       end
 
       @masters[key][string.version] = master

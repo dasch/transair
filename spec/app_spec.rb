@@ -1,6 +1,3 @@
-ENV['RACK_ENV'] = 'test'
-
-require 'bundler/setup'
 require 'transair/app'
 require 'rack/test'
 
@@ -12,8 +9,7 @@ describe Transair do
   end
 
   before do
-    $string_repo.clear
-    $translation_repo.clear
+    app.clear
   end
 
   it "allows adding new strings" do
@@ -27,6 +23,11 @@ describe Transair do
     expect(string["key"]).to eq "x.y.greeting"
     expect(string["master"]).to eq "Hello, World!"
     expect(string["version"]).to eq "0a0a9f2a6772"
+  end
+
+  it "responds with 400 Bad Request if the version is not correct" do
+    put "/strings/x.y.greeting/xoxo", "Hello, World!"
+    expect(last_response.status).to eq 400
   end
 
   it "allows adding translations to a string" do
