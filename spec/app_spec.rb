@@ -1,9 +1,52 @@
-require 'transair'
+ENV['RACK_ENV'] = 'test'
+
+require 'bundler/setup'
+require 'transair/app'
+require 'rack/test'
 
 describe Transair do
-  describe "GET /strings/:key/:version" do
-    it "returns the string with the given key and version" do
-      get '/strings/foo.bar/xxx'
-    end
+  include Rack::Test::Methods
+
+  def app
+    Transair::App
+  end
+
+  before do
+    $string_repo.clear
+    $translation_repo.clear
+  end
+
+  it "allows adding new strings" do
+    put "/strings/x.y.greeting/0a0a9f2a6772", "Hello, World!"
+    expect(last_response.status).to eq 200
+
+    get "/strings/x.y.greeting/0a0a9f2a6772"
+
+    string = JSON.parse(last_response.body)
+
+    expect(string["key"]).to eq "x.y.greeting"
+    expect(string["master"]).to eq "Hello, World!"
+    expect(string["version"]).to eq "0a0a9f2a6772"
+  end
+
+  it "allows adding translations to a string" do
+    put "/strings/x.y.greeting/0a0a9f2a6772", "Hello, World!"
+    expect(last_response.status).to eq 200
+
+    put "/strings/x.y.greeting/0a0a9f2a6772/translations/fr", "Bonjour, Monde!"
+    expect(last_response.status).to eq 200
+
+    get "/strings/x.y.greeting/0a0a9f2a6772/translations"
+    translations = JSON.parse(last_response.body)
+
+    expect(translations).to eq("fr" => "Bonjour, Monde!")
+  end
+
+  it "returns 404 when getting a non-existent string" do
+    get "/strings/x.y.greeting/0a0a9f2a6772"
+    expect(last_response.status).to eq 404
+
+    get "/strings/x.y.greeting/0a0a9f2a6772/translations"
+    expect(last_response.status).to eq 404
   end
 end
