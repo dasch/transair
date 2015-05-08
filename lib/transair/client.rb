@@ -1,11 +1,23 @@
 require 'yaml'
 require 'digest/sha1'
 require 'logger'
+require 'json'
+require 'faraday'
 
 module Transair
   class Client
-    def initialize(path:, translations_path:, connection:, logger: Logger.new($stderr))
-      @master_file_path = path
+    def self.build(url:)
+      connection = Faraday.new(url: url)
+
+      new(
+        master_path: "masters.yml",
+        translations_path: "translations",
+        connection: connection
+      )
+    end
+
+    def initialize(master_path:, translations_path:, connection:, logger: Logger.new($stderr))
+      @master_file_path = master_path
       @translations_path = translations_path
       @connection = connection
       @logger = logger
@@ -39,9 +51,9 @@ module Transair
         @logger.info "Key #{key} not found, uploading..."
         upload_key(key, version, master)
       elsif response.status == 200
-        @logger.info "Key #{key} found, storing translations..."
-
         translations = JSON.parse(response.body)
+
+        @logger.info "Key #{key} found, storing #{translations.size} translations..."
 
         translations.each do |locale, translation|
           @locales[locale][key] = translation

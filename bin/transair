@@ -1,0 +1,37 @@
+#!/usr/bin/env ruby
+
+require 'bundler/setup'
+require 'thor'
+
+$LOAD_PATH.unshift(File.expand_path("../../lib", __FILE__))
+require 'transair/client'
+
+class TransairClient < Thor
+  desc "sync", "synchronize strings"
+  option :url, required: true
+  def sync
+    client = Transair::Client.build(url: options[:url])
+    client.sync!
+  end
+
+  desc "translate", "translate a key"
+  option :url, required: true
+  option :key, required: true
+  option :version, required: true
+  option :locale, required: true
+  option :translation, required: true
+  def translate
+    path = [
+      "/strings",
+      options[:key],
+      options[:version],
+      "translations",
+      options[:locale]
+    ].join("/")
+
+    connection = Faraday.new(url: options[:url])
+    connection.put(path, options[:translation])
+  end
+end
+
+TransairClient.start(ARGV)

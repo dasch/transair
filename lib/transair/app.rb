@@ -8,6 +8,8 @@ require 'transair/translation_repository'
 module Transair
   class App < Sinatra::Base
     configure do
+      enable :logging
+
       set :string_repo, Transair::StringRepository.new
       set :translation_repo, Transair::TranslationRepository.new
     end

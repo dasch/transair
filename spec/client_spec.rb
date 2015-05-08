@@ -16,7 +16,7 @@ describe Transair::Client do
 
   let(:client) do
     Transair::Client.new(
-      path: master_file_path,
+      master_path: master_file_path,
       translations_path: translations_path,
       connection: connection,
       logger: logger
