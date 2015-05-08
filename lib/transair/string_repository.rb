@@ -12,6 +12,10 @@ module Transair
       @masters[key][version]
     end
 
+    def find_all(key:)
+      @masters[key]
+    end
+
     def exist?(key:, version:)
       !find(key: key, version: version).nil?
     end

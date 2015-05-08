@@ -32,6 +32,25 @@ class TransairClient < Thor
     connection = Faraday.new(url: options[:url])
     connection.put(path, options[:translation])
   end
+
+  desc "ls", "list versions of a key"
+  option :url, required: true
+  option :key, required: true
+  def ls
+    path = "/strings/#{options[:key]}"
+
+    connection = Faraday.new(url: options[:url])
+    response = connection.get(path)
+
+    if response.status != 200
+      raise "failed"
+    end
+
+    versions = JSON.parse(response.body)
+    versions.each do |version, value|
+      puts "#{version}: #{value}"
+    end
+  end
 end
 
 TransairClient.start(ARGV)
