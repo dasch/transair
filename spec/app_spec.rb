@@ -33,10 +33,9 @@ describe Transair do
     put "/strings/x.y.greeting/0a0a9f2a6772/translations/fr", "Bonjour, Monde!"
     expect(last_response.status).to eq 200
 
-    get "/strings/x.y.greeting/0a0a9f2a6772/translations"
-    translations = JSON.parse(last_response.body)
+    get "/strings/x.y.greeting/0a0a9f2a6772/translations/fr"
 
-    expect(translations).to eq("fr" => "Bonjour, Monde!")
+    expect(last_response.body).to eq("Bonjour, Monde!")
   end
 
   it "allows getting all versions of a string" do

@@ -8,6 +8,10 @@ module Transair
       @translations[key][version]
     end
 
+    def find(key:, version:, locale:)
+      find_all(key: key, version: version).fetch(locale, nil)
+    end
+
     def add(key:, version:, locale:, translation:)
       @translations[key][version][locale] = translation
     end
