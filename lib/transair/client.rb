@@ -5,6 +5,8 @@ require 'json'
 require 'time'
 require 'excon'
 
+require 'transair/translation_downloader'
+
 module Transair
   class Client
     SYNC_CHUNK_SIZE = 85
@@ -27,15 +29,32 @@ module Transair
       @connection = Excon.new(url, persistent: true)
       @logger = logger
       @locales = Hash.new {|h, k| h[k] = {} }
+      @upload_queue = Queue.new
       @timestamp_file_path = File.join(translations_path, ".timestamps.yml")
       @timestamps = load_timestamps(@timestamp_file_path)
-      @missing_strings = []
     end
 
     def sync!
-      master_strings.each_slice(SYNC_CHUNK_SIZE) do |strings|
-        download_translations!(strings)
+      queue = Queue.new
+
+      master_strings.each_slice(SYNC_CHUNK_SIZE) do |slice|
+        queue << slice
       end
+
+      downloaders = 4.times.map do
+        queue << nil
+        TranslationDownloader.new(
+          queue: queue,
+          connection: @connection,
+          upload_queue: @upload_queue,
+          logger: @logger,
+          locales: @locales,
+          timestamps: @timestamps
+        )
+      end
+
+      downloaders.each(&:start!)
+      downloaders.each(&:wait)
 
       upload_missing_strings!
 
@@ -52,8 +71,19 @@ module Transair
 
     private
 
+    def load_timestamps(path)
+      if File.exist?(path)
+        YAML.load_file(path)
+      else
+        Hash.new
+      end
+    end
+
     def upload_missing_strings!
-      @missing_strings.each_slice(20) do |strings|
+      until @upload_queue.empty?
+        strings = @upload_queue.deq
+        next if strings.empty?
+
         requests = strings.map do |(key, master)|
           version = version_for(master)
           path = "/strings/#{key}/#{version}"
@@ -71,54 +101,6 @@ module Transair
           end
         end
       end
-
-      @missing_strings = []
-    end
-
-    def download_translations!(strings)
-      requests = strings.map do |key, master|
-        @logger.info "Syncing key #{key}..."
-
-        version = version_for(master)
-        path = "/strings/#{key}/#{version}/translations"
-        headers = {}
-
-        if last_modified = get_last_modification(key)
-          headers["If-Modified-Since"] = last_modified.httpdate
-        end
-
-        {
-          method: :get,
-          path: path,
-          headers: headers
-        }
-      end
-
-      responses = @connection.requests(requests)
-
-      responses.zip(strings).each do |response, (key, master)|
-        if response.status == 404
-          @logger.info "Key #{key} not found, uploading..."
-          @missing_strings << [key, master]
-        elsif response.status == 304
-          @logger.info "Key #{key} still fresh."
-        elsif response.status == 200
-          translations = JSON.parse(response.body)
-
-          @logger.info "Key #{key} found, storing #{translations.size} translations..."
-
-          translations.each do |locale, translation|
-            @locales[locale][key] = translation
-          end
-
-          update_last_modification(key, response.headers["Last-Modified"])
-        else
-          @logger.warn "Failed to download translations for key #{key} -- " \
-            "response status #{response.status}"
-        end
-      end
-
-      @connection.reset
     end
 
     def master_strings
@@ -127,22 +109,6 @@ module Transair
 
     def load_master_strings
       YAML.load_file(@master_file_path)
-    end
-
-    def get_last_modification(key)
-      @timestamps[key]
-    end
-
-    def load_timestamps(path)
-      if File.exist?(path)
-        YAML.load_file(path)
-      else
-        Hash.new
-      end
-    end
-
-    def update_last_modification(key, timestamp)
-      @timestamps[key] = Time.httpdate(timestamp) if timestamp
     end
 
     def save_translations(locale, translations)
