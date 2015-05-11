@@ -41,13 +41,12 @@ module Transair
         }
       end
 
-      missing_strings = []
       responses = @connection.requests(requests)
 
       responses.zip(strings).each do |response, (key, master)|
         if response.status == 404
           @logger.info "Key #{key} not found, uploading..."
-          missing_strings << [key, master]
+          @upload_queue << [key, master]
         elsif response.status == 304
           @logger.info "Key #{key} still fresh."
         elsif response.status == 200
@@ -66,7 +65,6 @@ module Transair
         end
       end
 
-      @upload_queue.enq(missing_strings)
       @connection.reset
     end
 
