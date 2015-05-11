@@ -1,6 +1,6 @@
 require 'fakefs/spec_helpers'
 require 'yaml'
-require 'faraday'
+require 'webmock/rspec'
 
 require 'transair/client'
 require 'transair/app'
@@ -11,20 +11,22 @@ describe Transair::Client do
   let(:master_file_path) { "masters.yml" }
   let(:translations_path) { "translations" }
   let(:logger) { Logger.new(StringIO.new) }
-  let(:backend) { Transair::App.new }
-  let(:connection) { Faraday.new {|f| f.adapter :rack, backend } }
+  let(:backend) { Transair::App }
+  let(:connection) { Excon.new("http://example.com") }
 
   def client
     Transair::Client.new(
       master_path: master_file_path,
       translations_path: translations_path,
-      connection: connection,
+      url: "http://example.com",
       logger: logger
     )
   end
 
   before do
+    stub_request(:any, %r(http://example.com/.*)).to_rack(backend)
     write_master_file Hash.new
+    backend.clear
   end
 
   it "uploads new strings" do
@@ -32,7 +34,7 @@ describe Transair::Client do
 
     client.sync!
 
-    response = connection.get("/strings/x.y.greeting/0a0a9f2a6772")
+    response = connection.get(path: "/strings/x.y.greeting/0a0a9f2a6772")
     expect(response.status).to eq 200
 
     expect(response.body).to eq("Hello, World!")
@@ -43,7 +45,11 @@ describe Transair::Client do
     
     client.sync!
 
-    response = connection.put("/strings/x.y.greeting/0a0a9f2a6772/translations/fr", "Bonjour, Monde!")
+    response = connection.put(
+      path: "/strings/x.y.greeting/0a0a9f2a6772/translations/fr",
+      body: "Bonjour, Monde!"
+    )
+
     expect(response.status).to eq 200
 
     client.sync!
@@ -58,7 +64,11 @@ describe Transair::Client do
     
     client.sync!
 
-    response = connection.put("/strings/x.y.greeting/0a0a9f2a6772/translations/fr", "Bonjour, Monde!")
+    response = connection.put(
+      path: "/strings/x.y.greeting/0a0a9f2a6772/translations/fr",
+      body: "Bonjour, Monde!"
+    )
+
     expect(response.status).to eq 200
 
     client.sync!

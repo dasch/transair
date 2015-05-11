@@ -3,30 +3,29 @@ require 'digest/sha1'
 require 'logger'
 require 'json'
 require 'time'
-require 'faraday'
+require 'excon'
 
 module Transair
   class Client
-    def self.build(url:)
-      connection = Faraday.new(url: url) do |faraday|
-        faraday.adapter :net_http_persistent
-      end
+    SYNC_CHUNK_SIZE = 85
 
+    def self.build(url:)
       logger = Logger.new($stderr)
       logger.formatter = proc {|severity, datetime, progname, msg| msg + "\n" }
 
       new(
         master_path: "masters.yml",
         translations_path: "translations",
+        url: url,
         connection: connection,
         logger: logger
       )
     end
 
-    def initialize(master_path:, translations_path:, connection:, logger: Logger.new($stderr))
+    def initialize(master_path:, translations_path:, url:, logger: Logger.new($stderr))
       @master_file_path = master_path
       @translations_path = translations_path
-      @connection = connection
+      @connection = Excon.new(url, persistent: true)
       @logger = logger
       @locales = Hash.new {|h, k| h[k] = {} }
       @timestamp_file_path = File.join(translations_path, ".timestamps.yml")
@@ -34,9 +33,8 @@ module Transair
     end
 
     def sync!
-      master_strings.each do |key, master|
-        @logger.info "Syncing key #{key}..."
-        sync_key(key, master)
+      master_strings.each_slice(SYNC_CHUNK_SIZE) do |strings|
+        download_translations!(strings)
       end
 
       FileUtils.mkdir_p(@translations_path)
@@ -52,41 +50,56 @@ module Transair
 
     private
 
-    def sync_key(key, master)
-      version = Digest::SHA1.hexdigest(master)[0, 12]
-      url = "/strings/#{key}/#{version}/translations"
-      headers = {}
+    def download_translations!(strings)
+      requests = strings.map do |key, master|
+        @logger.info "Syncing key #{key}..."
 
-      if last_modified = get_last_modification(key)
-        headers["If-Modified-Since"] = last_modified.httpdate
-      end
+        version = version_for(master)
+        path = "/strings/#{key}/#{version}/translations"
+        headers = {}
 
-      response = @connection.get(url, {}, headers)
-
-      if response.status == 404
-        @logger.info "Key #{key} not found, uploading..."
-        upload_key(key, version, master)
-      elsif response.status == 304
-        @logger.info "Key #{key} still fresh."
-      elsif response.status == 200
-        translations = JSON.parse(response.body)
-
-        @logger.info "Key #{key} found, storing #{translations.size} translations..."
-
-        translations.each do |locale, translation|
-          @locales[locale][key] = translation
+        if last_modified = get_last_modification(key)
+          headers["If-Modified-Since"] = last_modified.httpdate
         end
 
-        update_last_modification(key, response.headers["Last-Modified"])
-      else
-        @logger.warn "Failed to download translations for key #{key} -- " \
-          "response status #{response.status}"
+        {
+          method: :get,
+          path: path,
+          headers: headers
+        }
       end
+
+      responses = @connection.requests(requests)
+
+      responses.zip(strings).each do |response, (key, master)|
+        if response.status == 404
+          @logger.info "Key #{key} not found, uploading..."
+          upload_key(key, master)
+        elsif response.status == 304
+          @logger.info "Key #{key} still fresh."
+        elsif response.status == 200
+          translations = JSON.parse(response.body)
+
+          @logger.info "Key #{key} found, storing #{translations.size} translations..."
+
+          translations.each do |locale, translation|
+            @locales[locale][key] = translation
+          end
+
+          update_last_modification(key, response.headers["Last-Modified"])
+        else
+          @logger.warn "Failed to download translations for key #{key} -- " \
+            "response status #{response.status}"
+        end
+      end
+
+      @connection.reset
     end
 
-    def upload_key(key, version, master)
+    def upload_key(key, master)
+      version = version_for(master)
       url = "/strings/#{key}/#{version}"
-      response = @connection.put(url, master)
+      response = @connection.put(path: url, body: master)
 
       if response.status == 200
         @logger.info "Uploaded key #{key}"
@@ -135,6 +148,10 @@ module Transair
       File.open(file_path, "w") do |file|
         file << YAML.dump(existing_translations)
       end
+    end
+
+    def version_for(master)
+      Digest::SHA1.hexdigest(master)[0, 12]
     end
   end
 end
