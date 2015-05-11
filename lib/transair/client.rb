@@ -6,6 +6,7 @@ require 'time'
 require 'excon'
 
 require 'transair/translation_downloader'
+require 'transair/translation_uploader'
 
 module Transair
   class Client
@@ -13,6 +14,7 @@ module Transair
 
     def self.build(url:)
       logger = Logger.new($stderr)
+      #logger.level = Logger::WARN
       logger.formatter = proc {|severity, datetime, progname, msg| msg + "\n" }
 
       new(
@@ -80,27 +82,13 @@ module Transair
     end
 
     def upload_missing_strings!
-      until @upload_queue.empty?
-        strings = @upload_queue.deq
-        next if strings.empty?
+      uploader = TranslationUploader.new(
+        queue: @upload_queue,
+        connection: @connection,
+        logger: @logger
+      )
 
-        requests = strings.map do |(key, master)|
-          version = version_for(master)
-          path = "/strings/#{key}/#{version}"
-
-          { path: path, method: :put, body: master }
-        end
-
-        responses = @connection.requests(requests)
-
-        responses.zip(strings).each do |response, (key, master)|
-          if response.status == 200
-            @logger.info "Uploaded key #{key}"
-          else
-            @logger.warn "Failed to upload key #{key} -- response status: #{response.status}"
-          end
-        end
-      end
+      uploader.upload!
     end
 
     def master_strings
@@ -127,10 +115,6 @@ module Transair
       File.open(file_path, "w") do |file|
         file << YAML.dump(existing_translations)
       end
-    end
-
-    def version_for(master)
-      Digest::SHA1.hexdigest(master)[0, 12]
     end
   end
 end
