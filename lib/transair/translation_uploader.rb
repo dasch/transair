@@ -2,10 +2,10 @@ require 'transair/enumerated_queue'
 
 module Transair
   class TranslationUploader
-    def initialize(queue:, logger:, connection:)
+    def initialize(queue:, logger:, url:)
       @queue = queue
       @logger = logger
-      @connection = connection
+      @connection = Excon.new(url, persistent: true)
     end
 
     def upload!

@@ -1,7 +1,8 @@
 module Transair
   class TranslationDownloader
-    def initialize(queue:, connection:, upload_queue:, logger:, timestamps:, locales:)
-      @queue, @connection = queue, connection
+    def initialize(queue:, url:, upload_queue:, logger:, timestamps:, locales:)
+      @queue = queue
+      @connection = Excon.new(url, persistent: true)
       @logger = logger
       @upload_queue = upload_queue
       @timestamps = timestamps

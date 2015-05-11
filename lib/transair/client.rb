@@ -28,7 +28,7 @@ module Transair
     def initialize(master_path:, translations_path:, url:, logger: Logger.new($stderr))
       @master_file_path = master_path
       @translations_path = translations_path
-      @connection = Excon.new(url, persistent: true)
+      @url = url
       @logger = logger
       @locales = Hash.new {|h, k| h[k] = {} }
       @upload_queue = Queue.new
@@ -47,7 +47,7 @@ module Transair
         queue << nil
         TranslationDownloader.new(
           queue: queue,
-          connection: @connection,
+          url: @url,
           upload_queue: @upload_queue,
           logger: @logger,
           locales: @locales,
@@ -84,7 +84,7 @@ module Transair
     def upload_missing_strings!
       uploader = TranslationUploader.new(
         queue: @upload_queue,
-        connection: @connection,
+        url: @url,
         logger: @logger
       )
 
