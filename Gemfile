@@ -3,7 +3,7 @@ ruby '2.1.5'
 
 gem 'sinatra', '~> 1.4.6'
 gem 'sinatra-contrib', '~> 1.4.2'
-gem 'thin', '~> 1.6.3'
+gem 'puma', '~> 2.11.2'
 gem 'excon', '~> 0.45.3'
 gem 'thor', '~> 0.19.1'
 
