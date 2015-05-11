@@ -10,7 +10,7 @@ require 'transair/translation_uploader'
 
 module Transair
   class Client
-    SYNC_CHUNK_SIZE = 85
+    SYNC_CHUNK_SIZE = 100
 
     def self.build(url:)
       logger = Logger.new($stderr)
