@@ -29,7 +29,8 @@ module Transair
       @connection = connection
       @logger = logger
       @locales = Hash.new {|h, k| h[k] = {} }
-      @timestamps = load_timestamps(File.join(translations_path, ".timestamps.yml"))
+      @timestamp_file_path = File.join(translations_path, ".timestamps.yml")
+      @timestamps = load_timestamps(@timestamp_file_path)
     end
 
     def sync!
@@ -42,6 +43,10 @@ module Transair
 
       @locales.each do |locale, translations|
         save_translations(locale, translations)
+      end
+
+      File.open(@timestamp_file_path, "w") do |f|
+        f << YAML.dump(@timestamps)
       end
     end
 
