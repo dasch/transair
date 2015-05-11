@@ -29,12 +29,15 @@ module Transair
       @locales = Hash.new {|h, k| h[k] = {} }
       @timestamp_file_path = File.join(translations_path, ".timestamps.yml")
       @timestamps = load_timestamps(@timestamp_file_path)
+      @missing_strings = []
     end
 
     def sync!
       master_strings.each_slice(SYNC_CHUNK_SIZE) do |strings|
         download_translations!(strings)
       end
+
+      upload_missing_strings!
 
       FileUtils.mkdir_p(@translations_path)
 
@@ -48,6 +51,29 @@ module Transair
     end
 
     private
+
+    def upload_missing_strings!
+      @missing_strings.each_slice(20) do |strings|
+        requests = strings.map do |(key, master)|
+          version = version_for(master)
+          path = "/strings/#{key}/#{version}"
+
+          { path: path, method: :put, body: master }
+        end
+
+        responses = @connection.requests(requests)
+
+        responses.zip(strings).each do |response, (key, master)|
+          if response.status == 200
+            @logger.info "Uploaded key #{key}"
+          else
+            @logger.warn "Failed to upload key #{key} -- response status: #{response.status}"
+          end
+        end
+      end
+
+      @missing_strings = []
+    end
 
     def download_translations!(strings)
       requests = strings.map do |key, master|
@@ -73,7 +99,7 @@ module Transair
       responses.zip(strings).each do |response, (key, master)|
         if response.status == 404
           @logger.info "Key #{key} not found, uploading..."
-          upload_key(key, master)
+          @missing_strings << [key, master]
         elsif response.status == 304
           @logger.info "Key #{key} still fresh."
         elsif response.status == 200
@@ -93,18 +119,6 @@ module Transair
       end
 
       @connection.reset
-    end
-
-    def upload_key(key, master)
-      version = version_for(master)
-      url = "/strings/#{key}/#{version}"
-      response = @connection.put(path: url, body: master)
-
-      if response.status == 200
-        @logger.info "Uploaded key #{key}"
-      else
-        @logger.warn "Failed to upload key #{key} -- response status: #{response.status}"
-      end
     end
 
     def master_strings
