@@ -17,7 +17,6 @@ module Transair
         master_path: "masters.yml",
         translations_path: "translations",
         url: url,
-        connection: connection,
         logger: logger
       )
     end
