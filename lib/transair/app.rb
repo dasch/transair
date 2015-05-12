@@ -6,6 +6,9 @@ require 'transair/string_repository'
 require 'transair/translation_repository'
 require 'transair/last_modification_repository'
 
+class TranslationString < Struct.new(:key, :versions)
+end
+
 module Transair
   class App < Sinatra::Base
     configure do
@@ -20,6 +23,35 @@ module Transair
       settings.string_repo.clear
       settings.translation_repo.clear
       settings.last_modification_repo.clear
+    end
+
+    get '/ui/strings' do
+      @strings = []
+
+      settings.string_repo.all.each do |key, versions|
+        @strings << TranslationString.new(key, versions)
+      end
+
+      erb :list_strings
+    end
+
+    get '/ui/strings/:key' do
+      key = params[:key]
+      versions = settings.string_repo.find_all(key: key)
+
+      @string = TranslationString.new(key, versions)
+
+      erb :show_string
+    end
+
+    get '/ui/strings/:key/:version' do
+      key = params[:key]
+
+      @version = params[:version]
+      @string = TranslationString.new(key, [])
+      @translations = settings.translation_repo.find_all(key: key, version: @version)
+
+      erb :show_string_version
     end
 
     get '/strings/:key/:version' do

@@ -1,0 +1,23 @@
+<ol class="breadcrumb">
+  <li><a href="/ui/strings">Strings</a></li>
+  <li class="active"><code><%= @string.key %></code></li>
+</ol>
+
+<h2><code><%= @string.key %></code></h2>
+
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Version</th>
+      <th>Master</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @string.versions.each do |version, master| %>
+      <tr>
+        <td width="20"><a href="/ui/strings/<%= @string.key %>/<%= version %>"><code><%= version %></code></a></td>
+        <td><%= master %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

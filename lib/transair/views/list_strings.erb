@@ -1,0 +1,16 @@
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Key</th>
+      <th>Versions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @strings.each do |string| %>
+      <tr>
+        <th><a href="/ui/strings/<%= string.key %>"><%= string.key %></a></th>
+        <td><%= string.versions.size %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
