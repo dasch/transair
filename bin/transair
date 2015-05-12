@@ -27,8 +27,8 @@ class TransairClient < Thor
       options[:locale]
     ].join("/")
 
-    connection = Faraday.new(url: api_url)
-    connection.put(path, options[:translation])
+    connection = Excon.new(api_url)
+    connection.put(path: path, body: options[:translation])
   end
 
   desc "ls", "list versions of a key"
@@ -36,8 +36,8 @@ class TransairClient < Thor
   def ls
     path = "/strings/#{options[:key]}"
 
-    connection = Faraday.new(url: api_url)
-    response = connection.get(path)
+    connection = Excon.new(api_url)
+    response = connection.get(path: path)
 
     if response.status != 200
       raise "failed"
