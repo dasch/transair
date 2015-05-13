@@ -1,0 +1,24 @@
+<ol class="breadcrumb">
+  <li><a href="/ui/strings">Strings</a></li>
+  <li><a href="/ui/strings/<%= @string.key %>"><code><%= @string.key %></code></a></li>
+  <li class="active"><code><%= @version %></code></li>
+</ol>
+
+<h2><code><%= @string.key %>:<%= @version %></code></h2>
+
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Locale</th>
+      <th>Translation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @translations.each do |locale, translation| %>
+      <tr>
+        <th width="10"><%= locale %></th>
+        <td><%= translation %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

@@ -12,6 +12,10 @@ module Transair
       @masters[key][version]
     end
 
+    def all
+      @masters
+    end
+
     def find_all(key:)
       @masters[key]
     end
